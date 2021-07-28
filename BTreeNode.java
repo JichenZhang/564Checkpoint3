@@ -43,4 +43,21 @@ class BTreeNode {
         this.next = null;
         
     }
+
+    /**
+     * find the correct position of the queried key
+     * Note - Ki is the ith key
+     * @param key
+     * @return i such that Ki <= key < Ki+1
+     */
+    int findIndex(Long key){
+        int i = 0;
+        while (i < keys.size() - 1){
+            if(keys.get(i) <= key && key < keys.get(i + 1)){
+                return i;
+            }
+            i++;
+        }
+        return -1; // appropriate space not found
+    }
 }

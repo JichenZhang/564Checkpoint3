@@ -91,6 +91,7 @@ class BTree {
          * Implement this function to insert in the B+Tree.
          * Also, insert in student.csv after inserting in B+Tree.
          */
+        this.n ++;
     	if(root == null) {
     		root = new BTreeNode(t, true);
     		root.keys.add(student.studentId);
@@ -205,13 +206,156 @@ class BTree {
     }
 
     boolean delete(long studentId) {
-        /**
-         * TODO:
-         * Implement this function to delete in the B+Tree.
-         * Also, delete in student.csv after deleting in B+Tree, if it exists.
-         * Return true if the student is deleted successfully otherwise, return false.
-         */
+        this.n --;
+        // step 0: if the student is not in the tree, return false
+        if (this.search(studentId) == -1){ // not found
+            return false;                  // O(log(n))
+        }
+        helpDelete(null, root, studentId);
         return true;
+    }
+
+    /**
+     * 
+     * @param parent
+     * @param node
+     * @param key
+     * @return the old childEntry
+     */
+    private BTreeNode helpDelete(BTreeNode parent, 
+                            BTreeNode node, 
+                            Long key){
+        if (!node.leaf){
+            int i = node.findIndex(key);
+            BTreeNode oldChildEntry = helpDelete(node, node.children.get(i), key);
+            if (oldChildEntry == null) return null;
+            // discarded child nodes
+            if(node.children.remove(oldChildEntry)){
+                // OK
+            }else{
+                throw new IllegalArgumentException("Entry not found, oldChildEntry returned something wrong.");
+            }
+            // has entry to spare
+            if (node.keys.size() >= node.t || this.root == node){
+                return null; // deletion doesn't go furthur
+            }
+            // doesn't have entry to spare
+            // merge/redistribute
+            if (redistributeAt(parent.children.indexOf(node), parent)){ 
+                // redistribution success
+                return null;
+            }
+            // merge
+            return mergeAT(parent.children.indexOf(node), parent);
+        }else{ // node is leaf
+            int i = node.keys.indexOf(key);
+            if (node.keys.size() > t || node == this.root){ // has enough to spare
+                node.keys.remove(i);
+                node.values.remove(i);
+                return null;
+            }
+            if (redistributeAt(parent.children.indexOf(node), parent)){
+                return null;
+            }
+            return mergeAT(parent.children.indexOf(node), parent);
+        }
+    }
+    /**
+     * 1. Redistribte within the parent node due to
+     * insuffficient children within parent.child_i.
+     * 2. Keeps the integrity of parent.keys()
+     * @param i - the (children) index of the node requesting redistribution
+     * @param parent
+     * @return true if redistribution is successful
+     */
+    private boolean redistributeAt(int i, BTreeNode parent){
+        if(!parent.children.get(i).leaf){
+            // HARD: non-leaf redistribution, push through
+            if (i > 0 && parent.children.get(i - 1).keys.size() > t){
+                // left push to right
+                BTreeNode leftNode = parent.children.get(i - 1);
+                BTreeNode rightNode = parent.children.get(i);
+                // move keys
+                rightNode.keys.add(0, parent.keys.remove(i - 1));
+                parent.keys.add(i-1, leftNode.keys.remove(leftNode.keys.size() - 1));
+                // move children
+                rightNode.children.add(0, leftNode.children.remove(leftNode.children.size() - 1));
+                return true;
+            }else if (i < parent.children.size() - 1 &&
+            parent.children.get(i + 1).keys.size() > t){
+                // right push to left
+                BTreeNode leftNode = parent.children.get(i);
+                BTreeNode rightNode = parent.children.get(i+1);
+                // move keys
+                leftNode.keys.add(parent.keys.remove(i));
+                parent.keys.add(i, rightNode.keys.remove(0));
+                // move children
+                leftNode.children.add(rightNode.children.remove(0));
+                return true;
+            }else{
+                // unable to redistribute
+                return false;
+            }
+        }else{ // node is leaf
+            if (i > 0 && parent.children.get(i - 1).keys.size() > t){ // steal from left
+                BTreeNode leftNode = parent.children.get(i - 1);
+                BTreeNode rightNode = parent.children.get(i);
+                // move keys
+                rightNode.keys.add(0, leftNode.keys.remove(leftNode.keys.size() - 1));
+                // move values
+                rightNode.values.add(0, leftNode.values.remove(leftNode.values.size() - 1));
+                return true;
+            }else if (i < parent.children.size() - 1 &&
+            parent.children.get(i + 1).keys.size() > t){
+                // steal from right
+                BTreeNode rightNode = parent.children.get(i+1);
+                BTreeNode leftNode = parent.children.get(i);
+                // move keys
+                leftNode.keys.add(rightNode.keys.remove(0));
+                // move values
+                leftNode.values.add(rightNode.values.remove(0));
+                return true;
+            }else{
+                // neither left nor right has enough
+                return false;
+            }
+        }
+
+    }
+
+    /**
+     * 
+     * @param i - the index of the node requesting merging
+     * @param parent
+     * @return the emptied Node reference
+     */
+    private BTreeNode mergeAT(int i, BTreeNode parent){
+        int left, right = -1;
+        if ( i > 0 ){ // merge with left
+            left = i - 1;
+            right = i;
+        }else{ // merge with right
+            left = i;
+            right = i + 1;
+        }
+        BTreeNode leftNode = parent.children.get(left);
+        BTreeNode rightNode = parent.children.get(right);
+        long splitting = parent.keys.get(left);
+        if (leftNode.leaf){
+            parent.keys.remove(left);
+            leftNode.keys.addAll(rightNode.keys);
+            leftNode.values.addAll(rightNode.values);
+            leftNode.next = rightNode.next;
+            rightNode.next = null;
+            return rightNode;
+        }else{
+            parent.keys.remove(left);
+            leftNode.keys.add(splitting);
+            leftNode.keys.addAll(rightNode.keys);
+            leftNode.children.addAll(rightNode.children);
+            return rightNode;
+        }
+        
     }
 
     List<Long> print() {

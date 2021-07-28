@@ -87,6 +87,11 @@ public class BTreeTester {
         assertEquals(t.delete(4), "true");
 
         assertEquals(t.print(), "[5, 6]");
+        
+        assertEquals(t.delete(6) , "true");
+        assertEquals(t.delete(5) , "true");
+
+        assertEquals(t.print(), "[]");
 
         // TODO - test for tree structures after deletion?
     }
